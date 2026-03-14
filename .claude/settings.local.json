@@ -11,7 +11,10 @@
       "Bash(npx tsc:*)",
       "Bash(find:*)",
       "Bash(npm run:*)",
-      "Bash(start:*)"
+      "Bash(start:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
