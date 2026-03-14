@@ -13,9 +13,11 @@ export function PreviewFrame() {
   const { getAllFiles, refreshTrigger } = useFileSystem();
   const [error, setError] = useState<string | null>(null);
   const [entryPoint, setEntryPoint] = useState<string>("/App.jsx");
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
+    const blobUrls: string[] = [];
+
     const updatePreview = () => {
       try {
         const files = getAllFiles();
@@ -49,7 +51,7 @@ export function PreviewFrame() {
         }
 
         if (files.size === 0) {
-          if (isFirstLoad) {
+          if (isFirstLoadRef.current) {
             setError("firstLoad");
           } else {
             setError("No files to preview");
@@ -58,9 +60,7 @@ export function PreviewFrame() {
         }
 
         // We have files, so it's no longer the first load
-        if (isFirstLoad) {
-          setIsFirstLoad(false);
-        }
+        isFirstLoadRef.current = false;
 
         if (!foundEntryPoint || !files.has(foundEntryPoint)) {
           setError(
@@ -70,6 +70,19 @@ export function PreviewFrame() {
         }
 
         const { importMap, styles, errors } = createImportMap(files);
+
+        // Track blob URLs created in the import map for cleanup
+        try {
+          const parsed = JSON.parse(importMap);
+          if (parsed.imports) {
+            Object.values(parsed.imports as Record<string, string>).forEach((url) => {
+              if (url.startsWith("blob:")) blobUrls.push(url);
+            });
+          }
+        } catch {
+          // ignore parse errors for cleanup tracking
+        }
+
         const previewHTML = createPreviewHTML(foundEntryPoint, importMap, styles, errors);
 
         if (iframeRef.current) {
@@ -91,7 +104,12 @@ export function PreviewFrame() {
     };
 
     updatePreview();
-  }, [refreshTrigger, getAllFiles, entryPoint, isFirstLoad]);
+
+    return () => {
+      blobUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger, entryPoint]);
 
   if (error) {
     if (error === "firstLoad") {
